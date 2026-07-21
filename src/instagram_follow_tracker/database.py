@@ -226,31 +226,44 @@ class TrackerDatabase:
         return events
 
     def get_pending_events(self, account_username: str | None = None) -> dict[str, list[TrackedEvent]]:
-        params: list[str] = []
-        filter_sql = ""
-        if account_username:
-            filter_sql = "AND ta.username = ?"
-            params.append(normalize_username(account_username))
         with self.connect() as connection:
-            rows = connection.execute(
-                f"""
-                SELECT
-                    e.id,
-                    ta.username AS account_username,
-                    e.event_type,
-                    e.follower_username,
-                    e.profile_id,
-                    e.full_name,
-                    e.is_verified,
-                    e.observed_at
-                FROM events e
-                INNER JOIN tracked_accounts ta ON ta.id = e.tracked_account_id
-                WHERE e.notified_at IS NULL
-                {filter_sql}
-                ORDER BY e.observed_at ASC, e.id ASC
-                """,
-                params,
-            ).fetchall()
+            if account_username:
+                rows = connection.execute(
+                    """
+                    SELECT
+                        e.id,
+                        ta.username AS account_username,
+                        e.event_type,
+                        e.follower_username,
+                        e.profile_id,
+                        e.full_name,
+                        e.is_verified,
+                        e.observed_at
+                    FROM events e
+                    INNER JOIN tracked_accounts ta ON ta.id = e.tracked_account_id
+                    WHERE e.notified_at IS NULL AND ta.username = ?
+                    ORDER BY e.observed_at ASC, e.id ASC
+                    """,
+                    (normalize_username(account_username),),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT
+                        e.id,
+                        ta.username AS account_username,
+                        e.event_type,
+                        e.follower_username,
+                        e.profile_id,
+                        e.full_name,
+                        e.is_verified,
+                        e.observed_at
+                    FROM events e
+                    INNER JOIN tracked_accounts ta ON ta.id = e.tracked_account_id
+                    WHERE e.notified_at IS NULL
+                    ORDER BY e.observed_at ASC, e.id ASC
+                    """
+                ).fetchall()
         grouped: dict[str, list[TrackedEvent]] = defaultdict(list)
         for row in rows:
             grouped[str(row["account_username"])].append(
@@ -272,9 +285,9 @@ class TrackerDatabase:
     def mark_events_notified(self, event_ids: list[int]) -> None:
         if not event_ids:
             return
-        placeholders = ",".join("?" for _ in event_ids)
         with self.connect() as connection:
-            connection.execute(
-                f"UPDATE events SET notified_at = ? WHERE id IN ({placeholders})",
-                [utc_now(), *event_ids],
+            notified_at = utc_now()
+            connection.executemany(
+                "UPDATE events SET notified_at = ? WHERE id = ?",
+                [(notified_at, event_id) for event_id in event_ids],
             )

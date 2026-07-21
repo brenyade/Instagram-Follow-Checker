@@ -96,7 +96,7 @@ class NotificationBundle:
             method="POST",
         )
         with urllib.request.urlopen(request, timeout=15):
-            return None
+            pass
 
     def _send_email(self, message: str) -> None:
         email = EmailMessage()
@@ -111,4 +111,3 @@ class NotificationBundle:
             if self.smtp_username and self.smtp_password:
                 smtp.login(self.smtp_username, self.smtp_password)
             smtp.send_message(email)
-
