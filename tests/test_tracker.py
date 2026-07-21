@@ -82,6 +82,25 @@ class TrackerServiceTests(unittest.TestCase):
         self.assertEqual(["alpha"], [event.follower.username for event in result.unfollow_events])
         self.assertEqual(1, len(notifier.messages))
 
+    def test_follows_are_detected_after_empty_baseline(self) -> None:
+        service = TrackerService(
+            database=self.database,
+            instagram_client=FakeInstagramClient(
+                [
+                    [],
+                    [FollowerRecord(username="newfriend")],
+                ]
+            ),
+            notifier=FakeNotifier(),
+        )
+
+        first = service.sync_account("target")
+        second = service.sync_account("target")
+
+        self.assertTrue(first.baseline_created)
+        self.assertFalse(second.baseline_created)
+        self.assertEqual(["newfriend"], [event.follower.username for event in second.follow_events])
+
     def test_notify_pending_marks_events_delivered(self) -> None:
         failing_notifier = type(
             "FailingNotifier",

@@ -1,0 +1,2 @@
+[console_scripts]
+ig-tracker = instagram_follow_tracker.cli:main
