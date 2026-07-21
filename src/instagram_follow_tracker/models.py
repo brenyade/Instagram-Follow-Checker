@@ -19,4 +19,3 @@ class TrackedEvent:
     event_type: str
     follower: FollowerRecord
     observed_at: datetime
-
